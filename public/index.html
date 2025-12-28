@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Weather + News</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 20px;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    h1 {
+      margin-bottom: 0.5rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #020617;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      border: 1px solid #1f2937;
+    }
+
+    .row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .col {
+      flex: 1 1 280px;
+    }
+
+    label {
+      font-size: 14px;
+      color: #9ca3af;
+    }
+
+    input,
+    select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+    }
+
+    button {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: none;
+      background: #2563eb;
+      color: #f9fafb;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .muted {
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    .news-item {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1f2937;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .error {
+      color: #f97373;
+      font-size: 14px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Weather and News</h1>
+    <p class="muted">Backend: http://localhost:3000/api/weather и /api/news</p>
+
+    <div class="card">
+      <div class="row">
+        <div class="col">
+          <label>City (weather): </label>
+          <input id="city-input" type="text" value="Astana" />
+          <button id="weather-btn">Get weather</button>
+          <div id="weather-error" class="error"></div>
+        </div>
+        <div class="col">
+          <label>Country (news, ISO2): </label>
+          <input id="country-input" type="text" value="KZ" maxlength="2" />
+          <button id="news-btn">Get News</button>
+          <div id="news-error" class="error"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <div class="title">Weather</div>
+          <div id="weather-result" class="muted">Click "Get weather".</div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="title">News</div>
+          <div id="news-result" class="muted">Click "Get news".</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const weatherBtn = document.getElementById("weather-btn");
+    const newsBtn = document.getElementById("news-btn");
+
+    const cityInput = document.getElementById("city-input");
+    const countryInput = document.getElementById("country-input");
+
+    const weatherResult = document.getElementById("weather-result");
+    const newsResult = document.getElementById("news-result");
+
+    const weatherError = document.getElementById("weather-error");
+    const newsError = document.getElementById("news-error");
+
+    async function loadWeather() {
+      weatherError.textContent = "";
+      weatherResult.textContent = "Loading...";
+      const city = cityInput.value.trim() || "Astana";
+
+      try {
+        const res = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          weatherResult.textContent = "";
+          weatherError.textContent = data.error || "Error";
+          return;
+        }
+
+        weatherResult.innerHTML = `
+          <div><strong>${data.city}</strong>, ${data.country || ""}</div>
+          <div>Temperature: ${data.temperature}°C ( feels like ${data.feels_like}°C)</div>
+          <div>Description: ${data.description}</div>
+          <div>Coordinates: [${data.coordinates.lat}, ${data.coordinates.lon}]</div>
+          <div>Wind: ${data.wind_speed} m/s</div>
+          <div>rain value (3h): ${data.rain_3h} mm</div>
+        `;
+      } catch (err) {
+        console.error(err);
+        weatherResult.textContent = "";
+        weatherError.textContent = "Error in client (weather)";
+      }
+    }
+
+    async function loadNews() {
+      newsError.textContent = "";
+      newsResult.textContent = "Loading...";
+      const country = (countryInput.value || "KZ").trim();
+
+      try {
+        const res = await fetch(`/api/news?country=${encodeURIComponent(country)}`);
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          newsResult.textContent = "";
+          newsError.textContent = data.error || "Loading news error";
+          return;
+        }
+
+        if (!data.articles || data.articles.length === 0) {
+          newsResult.textContent = "News aren't found.";
+          return;
+        }
+
+        newsResult.innerHTML = data.articles
+          .map(
+            (a) => `
+          <div class="news-item">
+            <div><a href="${a.url}" target="_blank">${a.title}</a></div>
+            <div class="muted">${a.source || ""} — ${a.publishedAt || ""}</div>
+            <div>${a.description || ""}</div>
+          </div>
+        `
+          )
+          .join("");
+      } catch (err) {
+        console.error(err);
+        newsResult.textContent = "";
+        newsError.textContent = "Error in clients (news)";
+      }
+    }
+
+    weatherBtn.addEventListener("click", loadWeather);
+    newsBtn.addEventListener("click", loadNews);
+
+    loadWeather();
+    loadNews();
+  </script>
+</body>
+
+</html>
